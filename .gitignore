@@ -1,0 +1,20 @@
+# Perfiles de navegadores Chrome (Datos locales y cache que no se suben a Git)
+fb_chrome_profile/
+fb_chrome_profile_perfil_1/
+fb_chrome_profile_perfil_2/
+fb_chrome_profile_perfil_3/
+fb_chrome_profile_perfil_4/
+fb_user_data/
+
+# Archivos compilados y cache de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Entornos virtuales e IDEs
+.venv/
+env/
+venv/
+.vscode/
+.idea/
+*.log
