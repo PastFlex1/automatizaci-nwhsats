@@ -532,6 +532,28 @@ class FBAutomatorApp(ctk.CTk):
         self.guardar_configuracion()
         self.log(f"👤 Cambiado a {nuevo_perfil} (Carpeta de sesión: {self.obtener_directorio_perfil()})")
 
+    def extraer_urls_validas(self, texto_grupos=""):
+        """
+        Extrae URLs válidas de grupos de Facebook del texto de la UI o lee directamente del archivo grupos.txt.
+        """
+        urls = []
+        if texto_grupos:
+            for line in texto_grupos.splitlines():
+                line_clean = line.strip()
+                if line_clean and not line_clean.startswith("#") and "facebook.com/groups" in line_clean:
+                    if not line_clean.startswith("http"):
+                        line_clean = "https://" + line_clean.lstrip("/")
+                    urls.append(line_clean)
+
+        if not urls and os.path.exists(GRUPOS_FILE):
+            with open(GRUPOS_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    l = line.strip()
+                    if l and not l.startswith("#") and "facebook.com/groups" in l:
+                        urls.append(l)
+
+        return urls
+
     def iniciar_modo_247(self):
         if self.is_running:
             return
@@ -541,14 +563,16 @@ class FBAutomatorApp(ctk.CTk):
 
         mensaje = self.txt_mensaje.get("1.0", "end-1c").strip()
         if not mensaje:
-            messagebox.showwarning("Atención", "Escribe un mensaje antes de iniciar.")
+            mensaje = self.config_data.get("message_template", "")
+
+        if not mensaje:
+            messagebox.showwarning("Atención", "Escribe un mensaje en la pestaña de campaña antes de iniciar el Modo 24/7.")
             return
 
-        lineas = self.txt_grupos.get("1.0", "end-1c").split("\n")
         grupos = self.extraer_urls_validas(self.txt_grupos.get("1.0", "end-1c"))
 
         if not grupos:
-            messagebox.showwarning("Atención", "No hay URLs válidas de grupos en la lista.")
+            messagebox.showwarning("Atención", "No hay URLs válidas de grupos en la lista. Agrega al menos un grupo en la pestaña 'Lista de Grupos'.")
             return
 
         self.stop_event.clear()
