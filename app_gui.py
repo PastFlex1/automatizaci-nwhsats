@@ -117,7 +117,7 @@ class FBAutomatorApp(ctk.CTk):
 
         self.txt_mensaje = ctk.CTkTextbox(self.tab_campana, font=ctk.CTkFont(size=13))
         self.txt_mensaje.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        self.txt_mensaje.insert("1.0", self.config_data.get("message_template", ""))
+        self.txt_mensaje.insert("1.0", str(self.config_data.get("message_template", "")).replace("\\n", "\n"))
 
         # Frame de botones de utilidad para el mensaje
         frame_msg_tools = ctk.CTkFrame(self.tab_campana, fg_color="transparent")

@@ -7,6 +7,7 @@ def parse_spintax(text: str) -> str:
     "{¡Hola!|Buenas tardes|Atención} {ofrezco|tengo disponible} {un servicio|un producto}..."
     Soporta anidación básica de variantes.
     """
+    text = text.replace('\\n', '\n')
     pattern = re.compile(r'\{([^{}]+)\}')
     while True:
         match = pattern.search(text)

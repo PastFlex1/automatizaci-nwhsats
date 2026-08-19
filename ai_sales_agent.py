@@ -26,7 +26,7 @@ def _query_ollama(prompt):
     try:
         with urllib.request.urlopen(req, timeout=60) as response:
             res_data = json.loads(response.read().decode("utf-8"))
-            return res_data.get("response", "").strip()
+            return res_data.get("response", "").strip().replace('\\n', '\n')
     except Exception as e:
         print(f"Error conectando con Ollama local ({OLLAMA_URL}): {e}")
         return None
