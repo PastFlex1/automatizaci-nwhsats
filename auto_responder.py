@@ -88,7 +88,29 @@ def responder_comentarios_en_notificaciones(direccion=DIRECCION_DEFECTO, telefon
                                 continue
 
                         if box:
-                            respuesta = generar_texto_respuesta(direccion, telefonos)
+                            # Intentar extraer el texto del comentario
+                            texto_cliente = "Info"
+                            try:
+                                elementos_texto = page.locator('div[dir="auto"]').all_inner_texts()
+                                if elementos_texto:
+                                    textos_validos = [t for t in elementos_texto if len(t) > 2 and t not in ["Me gusta", "Responder", "Compartir", "Like", "Reply", "Share"]]
+                                    if textos_validos:
+                                        texto_cliente = textos_validos[-1]
+                            except:
+                                pass
+
+                            from ai_sales_agent import generar_respuesta_ventas, analizar_intencion_cliente
+                            from crm_db import registrar_o_actualizar_cliente, registrar_estadistica
+
+                            respuesta = generar_respuesta_ventas(texto_cliente, direccion=direccion, telefonos=telefonos)
+                            estado_lead = analizar_intencion_cliente(texto_cliente)
+                            
+                            # Registrar en CRM
+                            registrar_o_actualizar_cliente(nombre="Cliente FB", perfil_fb=url_notif[:100], estado=estado_lead, interes="Equipo Gastronómico")
+                            registrar_estadistica("mensajes_recibidos")
+                            if estado_lead in ["Interesado", "Cotizado", "Venta Cerrada"]:
+                                registrar_estadistica("clientes_interesados")
+
                             box.focus()
                             box.fill(respuesta)
                             time.sleep(2)
@@ -173,7 +195,28 @@ def ejecutar_modo_continuo_24_7(lista_grupos, mensaje, imagen_path="", direccion
                                             continue
 
                                     if box:
-                                        resp = generar_texto_respuesta(direccion, telefonos)
+                                        # Intentar extraer texto
+                                        texto_cliente = "Info"
+                                        try:
+                                            elementos_texto = page.locator('div[dir="auto"]').all_inner_texts()
+                                            if elementos_texto:
+                                                textos_validos = [t for t in elementos_texto if len(t) > 2 and t not in ["Me gusta", "Responder", "Compartir", "Like", "Reply", "Share"]]
+                                                if textos_validos:
+                                                    texto_cliente = textos_validos[-1]
+                                        except:
+                                            pass
+
+                                        from ai_sales_agent import generar_respuesta_ventas, analizar_intencion_cliente
+                                        from crm_db import registrar_o_actualizar_cliente, registrar_estadistica
+
+                                        resp = generar_respuesta_ventas(texto_cliente, direccion=direccion, telefonos=telefonos)
+                                        estado_lead = analizar_intencion_cliente(texto_cliente)
+                                        
+                                        registrar_o_actualizar_cliente(nombre="Cliente FB", perfil_fb=url_notif[:100], estado=estado_lead, interes="Equipo Gastronómico")
+                                        registrar_estadistica("mensajes_recibidos")
+                                        if estado_lead in ["Interesado", "Cotizado", "Venta Cerrada"]:
+                                            registrar_estadistica("clientes_interesados")
+
                                         box.focus()
                                         box.fill(resp)
                                         time.sleep(2)

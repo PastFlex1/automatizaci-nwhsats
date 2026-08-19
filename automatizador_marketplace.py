@@ -9,9 +9,12 @@ _ULTIMO_FLYER_MARKETPLACE = None
 
 def obtener_flyer_marketplace_unico(imagen_path=""):
     """
-    Selecciona EXACTAMENTE 1 flyer al azar de la carpeta 'flyers/' para Marketplace,
-    garantizando que no se repita el mismo de la publicación anterior.
+    Retorna la imagen seleccionada por el usuario si existe.
+    Si no, selecciona al azar un flyer de la carpeta 'flyers/'.
     """
+    if imagen_path and os.path.exists(imagen_path):
+        return os.path.abspath(imagen_path)
+
     global _ULTIMO_FLYER_MARKETPLACE
     dir_flyers = "flyers"
     if os.path.exists(dir_flyers):
@@ -21,9 +24,6 @@ def obtener_flyer_marketplace_unico(imagen_path=""):
             elegido = random.choice(disponibles)
             _ULTIMO_FLYER_MARKETPLACE = elegido
             return os.path.abspath(elegido)
-
-    if imagen_path and os.path.exists(imagen_path):
-        return os.path.abspath(imagen_path)
 
     return ""
 

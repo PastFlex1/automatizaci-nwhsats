@@ -10,6 +10,7 @@ from generador_copy import obtener_plantillas, generar_copy_personalizado
 from automatizador import abrir_navegador_para_login, ejecutar_automatizacion
 from automatizador_marketplace import ejecutar_publicacion_marketplace
 from auto_responder import responder_comentarios_en_notificaciones, ejecutar_modo_continuo_24_7, DIRECCION_DEFECTO, TELEFONOS_DEFECTO
+from crm_db import obtener_todos_los_clientes, obtener_catalogo, agregar_producto_catalogo, obtener_estadisticas_mes
 
 # Configuración de tema
 ctk.set_appearance_mode("Dark")
@@ -43,24 +44,46 @@ class FBAutomatorApp(ctk.CTk):
         self.tabview = ctk.CTkTabview(self)
         self.tabview.grid(row=0, column=0, padx=15, pady=10, sticky="nsew")
 
+        self.tab_dashboard = self.tabview.add("📊 Dashboard")
+        self.tab_crm = self.tabview.add("👥 CRM & Clientes")
+        self.tab_catalogo = self.tabview.add("📦 Catálogo")
         self.tab_campana = self.tabview.add("📢 Configurar Campaña")
         self.tab_grupos = self.tabview.add("📋 Lista de Grupos")
         self.tab_marketplace = self.tabview.add("🛒 Publicar en Marketplace")
         self.tab_responder = self.tabview.add("💬 Auto-Respondedor")
         self.tab_copy = self.tabview.add("✨ Generador de Anuncios IA")
+        self.tab_config = self.tabview.add("⚙️ Configuración IA")
 
         # Construir UI en cada pestaña
+        self.crear_tab_dashboard()
+        self.crear_tab_crm()
+        self.crear_tab_catalogo()
         self.crear_tab_campana()
         self.crear_tab_grupos()
         self.crear_tab_marketplace()
         self.crear_tab_responder()
         self.crear_tab_copy()
+        self.crear_tab_config()
 
         # Panel Inferior: Botones de Acción y Logs
         self.crear_panel_inferior()
 
         # Cargar datos guardados
         self.cargar_grupos_desde_archivo()
+
+    def obtener_perfiles_disponibles(self):
+        perfiles = ["Perfil 1", "Perfil 2", "Perfil 3", "Perfil 4"]
+        try:
+            for item in os.listdir("."):
+                if os.path.isdir(item) and item.startswith("fb_chrome_profile_"):
+                    nombre = item.replace("fb_chrome_profile_", "").replace("_", " ").title()
+                    if nombre not in perfiles and nombre != "Temporal":
+                        perfiles.append(nombre)
+        except Exception:
+            pass
+        if "Sesión Temporal" not in perfiles:
+            perfiles.append("Sesión Temporal")
+        return perfiles
 
     def cargar_configuracion(self):
         if os.path.exists(CONFIG_FILE):
@@ -111,8 +134,8 @@ class FBAutomatorApp(ctk.CTk):
         frame_settings.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
         frame_settings.grid_columnconfigure(1, weight=1)
 
-        # Imagen
-        ctk.CTkLabel(frame_settings, text="Imagen / Flyer Publicitario:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        # Imagen o Video
+        ctk.CTkLabel(frame_settings, text="Imagen / Video Publicitario:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=10, sticky="w")
         
         saved_img = self.config_data.get("image_path") or ""
         display_txt = os.path.basename(saved_img) if (saved_img and os.path.exists(saved_img)) else ("Ninguna imagen seleccionada" if not saved_img else f"{os.path.basename(saved_img)} (no encontrada)")
@@ -127,7 +150,7 @@ class FBAutomatorApp(ctk.CTk):
         btn_open_folder = ctk.CTkButton(frame_img_btns, text="📂 Abrir Carpeta 'flyers'", command=self.abrir_carpeta_flyers, width=150, fg_color="#2b5c8f", hover_color="#1e4066")
         btn_open_folder.pack(side="left", padx=2)
 
-        btn_select_img = ctk.CTkButton(frame_img_btns, text="🖼️ Buscar Flyer...", command=self.seleccionar_imagen, width=140)
+        btn_select_img = ctk.CTkButton(frame_img_btns, text="🖼️/🎥 Buscar Archivo...", command=self.seleccionar_imagen, width=140)
         btn_select_img.pack(side="left", padx=2)
 
         btn_clear_img = ctk.CTkButton(frame_img_btns, text="❌ Quitar", command=self.quitar_imagen, width=65, fg_color="#777777")
@@ -168,9 +191,9 @@ class FBAutomatorApp(ctk.CTk):
     def seleccionar_imagen(self):
         initial_dir = os.path.abspath(FLYERS_DIR)
         filepath = filedialog.askopenfilename(
-            title="Selecciona tu flyer o imagen publicitaria",
+            title="Selecciona tu imagen o video publicitario",
             initialdir=initial_dir,
-            filetypes=[("Imágenes", "*.png *.jpg *.jpeg *.webp *.gif")]
+            filetypes=[("Archivos Multimedia", "*.png *.jpg *.jpeg *.webp *.gif *.mp4 *.mov *.avi *.mkv")]
         )
         if filepath:
             self.config_data["image_path"] = filepath
@@ -337,7 +360,7 @@ class FBAutomatorApp(ctk.CTk):
                     estado=estado,
                     ciudad="Quito",
                     descripcion=mensaje,
-                    imagen_path="",
+                    imagen_path=img_path,
                     user_data_dir=self.obtener_directorio_perfil(),
                     callback_log=self.log
                 )
@@ -460,6 +483,19 @@ class FBAutomatorApp(ctk.CTk):
 
         btn_gen_form = ctk.CTkButton(frame_form, text="⚡ Generar Anuncio con Spintax y Enviar a Campaña", command=self.generar_copy_formulario, fg_color="#27ae60", hover_color="#219150")
         btn_gen_form.grid(row=4, column=0, columnspan=2, padx=10, pady=15)
+        
+        # --- Generador de Imágenes IA ---
+        frame_img_ai = ctk.CTkFrame(self.tab_copy)
+        frame_img_ai.pack(fill="x", padx=15, pady=(0, 10))
+        frame_img_ai.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(frame_img_ai, text="🖼️ Generador de Imágenes IA (Gratis):", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+        
+        self.entry_prompt_img = ctk.CTkEntry(frame_img_ai, placeholder_text="Ej: Cocina industrial acero inoxidable realista 4k, restaurante moderno...")
+        self.entry_prompt_img.grid(row=1, column=0, padx=10, pady=(0, 15), sticky="ew")
+        
+        btn_gen_img = ctk.CTkButton(frame_img_ai, text="🎨 Generar y Guardar Foto", command=self.generar_imagen_ia, fg_color="#8e44ad", hover_color="#732d91")
+        btn_gen_img.grid(row=1, column=1, padx=10, pady=(0, 15))
 
     def usar_plantilla(self, plantilla):
         self.txt_mensaje.delete("1.0", "end")
@@ -476,11 +512,156 @@ class FBAutomatorApp(ctk.CTk):
             messagebox.showwarning("Campos vacíos", "Por favor completa el producto y el contacto.")
             return
 
-        copy_resultado = generar_copy_personalizado("general", prod, contact, ben)
+        from ai_sales_agent import generar_copy_marketplace
+        self.log(f"🧠 Generando publicación de alto rendimiento con IA para: {prod}...")
+        
+        # Combinar info para el prompt
+        producto_completo = f"{prod}. Beneficios: {ben}. Contacto: {contact}"
+        copy_resultado = generar_copy_marketplace(producto_completo)
+        
         self.txt_mensaje.delete("1.0", "end")
         self.txt_mensaje.insert("1.0", copy_resultado)
         self.tabview.set("📢 Configurar Campaña")
-        messagebox.showinfo("¡Listo!", "Anuncio generado con Spintax y cargado en la campaña.")
+        messagebox.showinfo("¡Listo!", "Anuncio persuasivo generado con Inteligencia Artificial y cargado en la campaña.")
+    def generar_imagen_ia(self):
+        prompt = self.entry_prompt_img.get().strip()
+        if not prompt:
+            messagebox.showwarning("Atención", "Por favor escribe una descripción para generar la imagen.")
+            return
+            
+        self.log(f"\n🎨 Generando imagen IA: '{prompt}'\n⏳ Esto tomará de 10 a 20 segundos dependiendo del nivel de detalle...")
+        
+        def tarea_descarga():
+            import urllib.parse
+            import urllib.request
+            import time
+            import os
+            try:
+                # Usar Pollinations AI (API gratuita y sin keys)
+                encoded = urllib.parse.quote(prompt)
+                url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+                
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=40) as response:
+                    data = response.read()
+                
+                timestamp = int(time.time())
+                filename = f"ia_generada_{timestamp}.jpg"
+                filepath = os.path.join(FLYERS_DIR, filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(data)
+                
+                self.log(f"✅ ¡Imagen generada con éxito y guardada en {filepath}!")
+                
+                # Auto-seleccionar para la campaña
+                self.config_data["image_path"] = os.path.abspath(filepath)
+                self.guardar_configuracion()
+                
+                # Actualizar UI
+                if hasattr(self, 'lbl_img_path'):
+                    self.after(0, lambda: self.lbl_img_path.configure(text=filename, text_color="#00ffcc"))
+                
+                self.after(0, lambda: messagebox.showinfo("Imagen Generada", f"¡Magia pura! Tu imagen ha sido generada y guardada en la carpeta 'flyers' como {filename}.\n\nYa está lista y seleccionada para tu próxima campaña."))
+                
+            except Exception as e:
+                self.log(f"❌ Error al generar la imagen: {str(e)}")
+                self.after(0, lambda e=e: messagebox.showerror("Error de Conexión", f"No se pudo generar la imagen. Intenta con otra descripción.\n\nDetalle: {str(e)}"))
+                
+        threading.Thread(target=tarea_descarga, daemon=True).start()
+
+    # ---------------- NUEVAS TABS: CRM, DASHBOARD, CATALOGO, CONFIG ----------------
+    def crear_tab_dashboard(self):
+        self.tab_dashboard.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        lbl_titulo = ctk.CTkLabel(self.tab_dashboard, text="Dashboard Analítico de Ventas", font=ctk.CTkFont(size=20, weight="bold"))
+        lbl_titulo.grid(row=0, column=0, columnspan=3, pady=(15, 20))
+        
+        # Obtener stats
+        stats = obtener_estadisticas_mes()
+        
+        self.crear_tarjeta_stat(self.tab_dashboard, "Nuevos Leads (Mes)", stats["leads"], 1, 0, "#2980b9")
+        self.crear_tarjeta_stat(self.tab_dashboard, "Cotizaciones", stats["cot"], 1, 1, "#f39c12")
+        self.crear_tarjeta_stat(self.tab_dashboard, "Ventas Cerradas", stats["ventas"], 1, 2, "#27ae60")
+        
+        self.crear_tarjeta_stat(self.tab_dashboard, "Publicaciones", stats["pub"], 2, 0, "#8e44ad")
+        self.crear_tarjeta_stat(self.tab_dashboard, "Mensajes Recibidos", stats["msg"], 2, 1, "#34495e")
+
+    def crear_tarjeta_stat(self, parent, titulo, valor, row, col, color):
+        frame = ctk.CTkFrame(parent, fg_color=color, corner_radius=10)
+        frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+        ctk.CTkLabel(frame, text=titulo, font=ctk.CTkFont(size=14, weight="bold"), text_color="white").pack(pady=(15, 5))
+        ctk.CTkLabel(frame, text=str(valor), font=ctk.CTkFont(size=28, weight="bold"), text_color="white").pack(pady=(0, 15))
+
+    def crear_tab_crm(self):
+        self.tab_crm.grid_columnconfigure(0, weight=1)
+        self.tab_crm.grid_rowconfigure(1, weight=1)
+        
+        frame_top = ctk.CTkFrame(self.tab_crm, fg_color="transparent")
+        frame_top.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+        
+        ctk.CTkLabel(frame_top, text="Gestión de Clientes (CRM)", font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+        btn_refresh = ctk.CTkButton(frame_top, text="🔄 Actualizar", command=self.cargar_lista_crm, width=100)
+        btn_refresh.pack(side="right")
+        
+        self.txt_crm = ctk.CTkTextbox(self.tab_crm, font=ctk.CTkFont(family="Consolas", size=12))
+        self.txt_crm.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        self.cargar_lista_crm()
+
+    def cargar_lista_crm(self):
+        self.txt_crm.delete("1.0", "end")
+        clientes = obtener_todos_los_clientes()
+        header = f"{'ID':<5} | {'Nombre':<20} | {'Estado':<15} | {'Interés':<20} | {'Último Contacto'}\n"
+        self.txt_crm.insert("end", header + "-"*90 + "\n")
+        for c in clientes:
+            line = f"{c['id']:<5} | {str(c['nombre'])[:18]:<20} | {str(c['estado'])[:13]:<15} | {str(c['interes'])[:18]:<20} | {c['fecha_ultimo_contacto']}\n"
+            self.txt_crm.insert("end", line)
+
+    def crear_tab_catalogo(self):
+        self.tab_catalogo.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(self.tab_catalogo, text="Agregar Producto al Catálogo", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=2, pady=10)
+        
+        ctk.CTkLabel(self.tab_catalogo, text="Nombre:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.entry_cat_nom = ctk.CTkEntry(self.tab_catalogo)
+        self.entry_cat_nom.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+        
+        ctk.CTkLabel(self.tab_catalogo, text="Precio:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        self.entry_cat_pre = ctk.CTkEntry(self.tab_catalogo)
+        self.entry_cat_pre.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
+        
+        btn_save = ctk.CTkButton(self.tab_catalogo, text="💾 Guardar Producto", command=self.guardar_producto_catalogo)
+        btn_save.grid(row=3, column=0, columnspan=2, pady=15)
+
+    def guardar_producto_catalogo(self):
+        nom = self.entry_cat_nom.get().strip()
+        pre = self.entry_cat_pre.get().strip()
+        if nom and pre:
+            try:
+                precio_float = float(pre)
+                agregar_producto_catalogo(nom, "", "", precio_float, "", "")
+                messagebox.showinfo("Éxito", "Producto agregado al catálogo.")
+                self.entry_cat_nom.delete(0, 'end')
+                self.entry_cat_pre.delete(0, 'end')
+            except:
+                messagebox.showerror("Error", "El precio debe ser numérico.")
+
+    def crear_tab_config(self):
+        self.tab_config.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(self.tab_config, text="Configuración de Inteligencia Artificial (Ollama Local)", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=2, pady=15, padx=10, sticky="w")
+        
+        ctk.CTkLabel(self.tab_config, text="Modelo Ollama (ej. llama3.1):").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.entry_api_key = ctk.CTkEntry(self.tab_config)
+        self.entry_api_key.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+        self.entry_api_key.insert(0, self.config_data.get("ollama_model", "llama3.1"))
+        
+        btn_save = ctk.CTkButton(self.tab_config, text="💾 Guardar Modelo", command=self.guardar_api_key)
+        btn_save.grid(row=2, column=0, columnspan=2, pady=15)
+
+    def guardar_api_key(self):
+        self.config_data["ollama_model"] = self.entry_api_key.get().strip()
+        self.guardar_configuracion()
+        messagebox.showinfo("Guardado", "Modelo de Ollama guardado correctamente.")
 
     # ---------------- PANEL INFERIOR & LOGS ----------------
     def crear_panel_inferior(self):
@@ -496,9 +677,21 @@ class FBAutomatorApp(ctk.CTk):
 
         # Selector de Perfil Multi-Cuenta
         ctk.CTkLabel(frame_controls, text="👤 Cuenta FB:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(10, 2))
-        self.combo_perfiles = ctk.CTkComboBox(frame_controls, values=["Perfil 1", "Perfil 2", "Perfil 3", "Perfil 4"], width=110, command=self.al_cambiar_perfil)
-        self.combo_perfiles.pack(side="left", padx=(0, 10))
-        self.combo_perfiles.set(self.config_data.get("current_profile", "Perfil 1"))
+        
+        perfiles_lista = self.obtener_perfiles_disponibles()
+        self.combo_perfiles = ctk.CTkComboBox(frame_controls, values=perfiles_lista, width=130, command=self.al_cambiar_perfil)
+        self.combo_perfiles.pack(side="left", padx=(0, 5))
+        
+        # Botón para crear un nuevo perfil arbitrario
+        btn_nuevo_perfil = ctk.CTkButton(frame_controls, text="+ Nuevo", width=60, command=self.crear_nuevo_perfil, fg_color="#555555", hover_color="#333333")
+        btn_nuevo_perfil.pack(side="left", padx=(0, 10))
+        
+        # Restaurar perfil guardado o default
+        perfil_guardado = self.config_data.get("current_profile", "Perfil 1")
+        if perfil_guardado not in perfiles_lista:
+            perfiles_lista.insert(0, perfil_guardado)
+            self.combo_perfiles.configure(values=perfiles_lista)
+        self.combo_perfiles.set(perfil_guardado)
 
         # Botones Principales
         self.btn_login = ctk.CTkButton(frame_controls, text="🔑 1. Conectar FB", command=self.iniciar_login, fg_color="#1877f2", hover_color="#1154a4", height=40, font=ctk.CTkFont(size=13, weight="bold"))
@@ -524,6 +717,8 @@ class FBAutomatorApp(ctk.CTk):
 
     def obtener_directorio_perfil(self):
         perfil = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
+        if perfil == "Sesión Temporal":
+            return "./fb_chrome_profile_temporal"
         perfil_clean = perfil.lower().replace(" ", "_")
         return f"./fb_chrome_profile_{perfil_clean}"
 
@@ -531,6 +726,22 @@ class FBAutomatorApp(ctk.CTk):
         self.config_data["current_profile"] = nuevo_perfil
         self.guardar_configuracion()
         self.log(f"👤 Cambiado a {nuevo_perfil} (Carpeta de sesión: {self.obtener_directorio_perfil()})")
+
+    def crear_nuevo_perfil(self):
+        dialog = ctk.CTkInputDialog(text="Ingresa un nombre para la nueva cuenta (ej. Cuenta de Juan, Ventas 2):", title="Crear Nuevo Perfil")
+        nuevo_nombre = dialog.get_input()
+        if nuevo_nombre:
+            nuevo_nombre = nuevo_nombre.strip()
+            if nuevo_nombre:
+                valores_actuales = self.combo_perfiles.cget("values")
+                if nuevo_nombre not in valores_actuales:
+                    nuevos_valores = list(valores_actuales)
+                    nuevos_valores.insert(0, nuevo_nombre)
+                    self.combo_perfiles.configure(values=nuevos_valores)
+                
+                self.combo_perfiles.set(nuevo_nombre)
+                self.al_cambiar_perfil(nuevo_nombre)
+                self.log(f"✅ ¡Nuevo perfil '{nuevo_nombre}' listo! Haz clic en 'Conectar FB' y te abrirá un navegador vacío para iniciar sesión.")
 
     def extraer_urls_validas(self, texto_grupos=""):
         """
@@ -615,6 +826,18 @@ class FBAutomatorApp(ctk.CTk):
     # ---------------- ACCIONES DE AUTOMATIZACIÓN ----------------
     def iniciar_login(self):
         perfil_actual = self.combo_perfiles.get()
+        
+        # Limpiar la sesión temporal para que siempre abra vacía
+        if perfil_actual == "Sesión Temporal":
+            dir_temp = self.obtener_directorio_perfil()
+            if os.path.exists(dir_temp):
+                import shutil
+                try:
+                    shutil.rmtree(dir_temp)
+                    self.log("🧹 Sesión temporal limpiada correctamente. Abriendo navegador vacío...")
+                except Exception as e:
+                    self.log(f"⚠️ No se pudo limpiar completamente la sesión temporal: {e}")
+                    
         self.log(f"🌐 Abriendo navegador para conectar {perfil_actual} de Facebook...")
         threading.Thread(target=abrir_navegador_para_login, args=(self.obtener_directorio_perfil(), self.log), daemon=True).start()
 

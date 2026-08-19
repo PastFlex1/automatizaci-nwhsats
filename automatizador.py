@@ -10,16 +10,20 @@ from spintax_helper import parse_spintax
 def obtener_puerto_segun_perfil(user_data_dir):
     """
     Asigna un puerto CDP de depuración independiente a cada perfil de Facebook
-    para permitir la ejecución simultánea de múltiples cuentas sin conflictos.
+    generándolo dinámicamente a partir del nombre de la carpeta.
+    Permite la ejecución simultánea de perfiles ilimitados sin conflictos.
     """
     dir_str = str(user_data_dir).lower()
-    if "perfil_2" in dir_str:
-        return 9223
-    elif "perfil_3" in dir_str:
-        return 9224
-    elif "perfil_4" in dir_str:
-        return 9225
-    return 9222
+    
+    if "temporal" in dir_str:
+        return 9299
+        
+    import hashlib
+    # Genera un hash consistente del nombre del directorio y lo convierte a un puerto entre 9200 y 9999
+    hash_obj = hashlib.md5(dir_str.encode())
+    hash_int = int(hash_obj.hexdigest()[:8], 16)
+    port = 9200 + (hash_int % 700)
+    return port
 
 def obtener_ruta_chrome():
     """
@@ -293,8 +297,14 @@ def publicar_en_grupo_individual(page, url, mensaje_spintax, imagen_path, callba
                     continue
 
         if uploaded:
-            callback_log("  -> Esperando procesamiento de imagen en Facebook (8 segundos)...")
-            time.sleep(random.uniform(8, 11))
+            # Si es video, esperamos más tiempo para que Facebook lo procese
+            ext = os.path.splitext(abs_img)[1].lower()
+            if ext in [".mp4", ".mov", ".avi", ".mkv"]:
+                callback_log("  -> 🎥 Video detectado. Esperando procesamiento de video en Facebook (25 segundos)...")
+                time.sleep(random.uniform(23, 28))
+            else:
+                callback_log("  -> 🖼️ Esperando procesamiento de imagen en Facebook (8 segundos)...")
+                time.sleep(random.uniform(8, 11))
         else:
             callback_log("❌ No se pudo adjuntar el flyer a la publicación.")
 
@@ -317,8 +327,19 @@ def publicar_en_grupo_individual(page, url, mensaje_spintax, imagen_path, callba
                 if not is_disabled:
                     p_btn.click()
                     published = True
-                    callback_log("🚀 ¡Publicación enviada exitosamente!")
                     time.sleep(random.uniform(6, 9))
+                    
+                    # Chequear si fue a "Pendiente de aprobación"
+                    try:
+                        # Buscar textos comunes de moderación en español e inglés
+                        pending_loc = page.locator('text=/pendiente|aprobación|revisión|pending|approval/i')
+                        if pending_loc.count() > 0 and pending_loc.first.is_visible(timeout=2000):
+                            callback_log("⚠️ Publicación enviada, pero requiere APROBACIÓN del administrador (Pendiente).")
+                        else:
+                            callback_log("🚀 ¡Publicación enviada exitosamente y está VISIBLE!")
+                    except Exception:
+                        callback_log("🚀 ¡Publicación enviada exitosamente!")
+                        
                     break
         except Exception:
             continue
@@ -346,7 +367,7 @@ def obtener_lista_flyers(imagen_path_o_dir=""):
         archivos = sorted(os.listdir(dir_flyers))
         for f in archivos:
             ext = os.path.splitext(f)[1].lower()
-            if ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]:
+            if ext in [".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".avi", ".mkv"]:
                 full_path = os.path.join(dir_flyers, f)
                 if full_path not in flyers:
                     flyers.append(full_path)
