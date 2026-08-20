@@ -168,11 +168,18 @@ def publicar_en_grupo_individual(page, url, mensaje_spintax, imagen_path, callba
             'div[role="button"]:has-text("Write something...")',
             'div[role="button"]:has-text("¿Qué estás pensando?")',
             'div[role="button"]:has-text("What\'s on your mind?")',
+            'div[role="button"]:has-text("Crea una publicación pública...")',
+            'div[role="button"]:has-text("Create a public post...")',
+            'div[role="button"]:has-text("Conversación")',
+            'div[role="button"]:has-text("Discussion")',
             'span:has-text("Escribe algo...")',
             'span:has-text("Write something...")',
             'span:has-text("¿Qué estás pensando?")',
+            'span:has-text("Crea una publicación pública...")',
+            'span:has-text("Conversación")',
             'div[aria-label="Escribe algo..."]',
             'div[aria-label="Write something..."]',
+            'div[aria-label="Crea una publicación pública..."]',
             'div[role="button"]:has-text("Crear publicación")',
             'div[role="button"]:has-text("Create post")'
         ]
@@ -191,7 +198,7 @@ def publicar_en_grupo_individual(page, url, mensaje_spintax, imagen_path, callba
     if not modal_abierto:
         try:
             page.keyboard.press("c")
-            time.sleep(2)
+            time.sleep(3)
         except Exception:
             pass
 
@@ -202,6 +209,9 @@ def publicar_en_grupo_individual(page, url, mensaje_spintax, imagen_path, callba
         'div[role="dialog"] div[role="textbox"]',
         'div[role="dialog"] div[contenteditable="true"]',
         'div[contenteditable="true"][role="textbox"]',
+        'div[data-lexical-editor="true"]',
+        'div[aria-label*="Escribe"]',
+        'div[aria-label*="Write"]',
         'div[role="textbox"]'
     ]
 
