@@ -30,8 +30,8 @@ class FBAutomatorApp(ctk.CTk):
         self.geometry("980x740")
         self.minsize(900, 680)
 
-        self.stop_event = threading.Event()
-        self.is_running = False
+        self.stop_events = {}
+        self.perfiles_activos = set()
 
         # Cargar configuración inicial
         self.config_data = self.cargar_configuracion()
@@ -347,7 +347,9 @@ class FBAutomatorApp(ctk.CTk):
         self.guardar_configuracion()
 
     def iniciar_publicacion_marketplace(self):
-        if self.is_running:
+        perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
+        if perfil_nom in self.perfiles_activos:
+            messagebox.showwarning("Atención", f"El perfil '{perfil_nom}' ya está ejecutando una tarea.")
             return
 
         self.guardar_configuracion()
@@ -370,15 +372,9 @@ class FBAutomatorApp(ctk.CTk):
             messagebox.showwarning("Atención", "Por favor ingresa la descripción del anuncio en la pestaña '📢 Configurar Campaña'.")
             return
 
-        self.stop_event.clear()
-        self.is_running = True
-
-        self.btn_start.configure(state="disabled")
-        self.btn_login.configure(state="disabled")
-        self.btn_mode_247.configure(state="disabled")
+        self.perfiles_activos.add(perfil_nom)
+        self.stop_events[perfil_nom] = threading.Event()
         self.btn_stop.configure(state="normal")
-
-        perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
         self.log(f"\n🛒 Iniciando publicación en Facebook Marketplace con {perfil_nom}...")
 
         img_path = self.config_data.get("image_path_mp", "")
@@ -397,8 +393,7 @@ class FBAutomatorApp(ctk.CTk):
                     callback_log=self.log
                 )
             finally:
-                self.is_running = False
-                self.after(0, self.finalizar_campana)
+                self.perfiles_activos.discard(perfil_nom)
 
         threading.Thread(target=run_mp_thread, daemon=True).start()
 
@@ -443,7 +438,9 @@ class FBAutomatorApp(ctk.CTk):
         btn_start_resp.grid(row=4, column=0, columnspan=2, padx=15, pady=20)
 
     def iniciar_auto_responder(self):
-        if self.is_running:
+        perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
+        if perfil_nom in self.perfiles_activos:
+            messagebox.showwarning("Atención", f"El perfil '{perfil_nom}' ya está en ejecución.")
             return
 
         direccion = self.entry_resp_dir.get().strip()
@@ -453,9 +450,10 @@ class FBAutomatorApp(ctk.CTk):
             messagebox.showwarning("Atención", "Por favor completa la dirección y los teléfonos.")
             return
 
-        self.stop_event.clear()
-        self.is_running = True
-        self.log("\n🤖 Iniciando Auto-Respondedor de Comentarios...")
+        self.perfiles_activos.add(perfil_nom)
+        self.stop_events[perfil_nom] = threading.Event()
+        self.btn_stop.configure(state="normal")
+        self.log(f"\n🤖 Iniciando Auto-Respondedor de Comentarios en {perfil_nom}...")
 
         def run_resp_thread():
             try:
@@ -464,10 +462,10 @@ class FBAutomatorApp(ctk.CTk):
                     telefonos=telefonos,
                     user_data_dir=self.obtener_directorio_perfil(),
                     callback_log=self.log,
-                    stop_event=self.stop_event
+                    stop_event=self.stop_events[perfil_nom]
                 )
             finally:
-                self.is_running = False
+                self.perfiles_activos.discard(perfil_nom)
 
         threading.Thread(target=run_resp_thread, daemon=True).start()
 
@@ -814,7 +812,9 @@ class FBAutomatorApp(ctk.CTk):
         return urls
 
     def iniciar_modo_247(self):
-        if self.is_running:
+        perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
+        if perfil_nom in self.perfiles_activos:
+            messagebox.showwarning("Atención", f"El perfil '{perfil_nom}' ya está en ejecución.")
             return
 
         self.guardar_configuracion()
@@ -834,12 +834,8 @@ class FBAutomatorApp(ctk.CTk):
             messagebox.showwarning("Atención", "No hay URLs válidas de grupos en la lista. Agrega al menos un grupo en la pestaña 'Lista de Grupos'.")
             return
 
-        self.stop_event.clear()
-        self.is_running = True
-
-        self.btn_start.configure(state="disabled")
-        self.btn_login.configure(state="disabled")
-        self.btn_mode_247.configure(state="disabled")
+        self.perfiles_activos.add(perfil_nom)
+        self.stop_events[perfil_nom] = threading.Event()
         self.btn_stop.configure(state="normal")
 
         img_path = self.config_data.get("image_path", "")
@@ -850,6 +846,8 @@ class FBAutomatorApp(ctk.CTk):
         
         direccion = dir_local.get().strip() if dir_local else DIRECCION_DEFECTO
         telefonos = tel_local.get().strip() if tel_local else TELEFONOS_DEFECTO
+        
+        self.log(f"\n⚡ Iniciando Modo 24/7 en {perfil_nom}...")
 
         def run_247_thread():
             try:
@@ -863,11 +861,10 @@ class FBAutomatorApp(ctk.CTk):
                     max_delay=max_d,
                     user_data_dir=self.obtener_directorio_perfil(),
                     callback_log=self.log,
-                    stop_event=self.stop_event
+                    stop_event=self.stop_events[perfil_nom]
                 )
             finally:
-                self.is_running = False
-                self.after(0, self.finalizar_campana)
+                self.perfiles_activos.discard(perfil_nom)
 
         threading.Thread(target=run_247_thread, daemon=True).start()
 
@@ -890,7 +887,9 @@ class FBAutomatorApp(ctk.CTk):
         threading.Thread(target=abrir_navegador_para_login, args=(self.obtener_directorio_perfil(), self.log), daemon=True).start()
 
     def iniciar_campana(self):
-        if self.is_running:
+        perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
+        if perfil_nom in self.perfiles_activos:
+            messagebox.showwarning("Atención", f"El perfil '{perfil_nom}' ya está en ejecución.")
             return
 
         # Guardar configuraciones
@@ -909,12 +908,10 @@ class FBAutomatorApp(ctk.CTk):
             messagebox.showwarning("Atención", "No hay URLs válidas de grupos de Facebook en la lista.")
             return
 
-        self.stop_event.clear()
-        self.is_running = True
-
-        self.btn_start.configure(state="disabled")
-        self.btn_login.configure(state="disabled")
+        self.perfiles_activos.add(perfil_nom)
+        self.stop_events[perfil_nom] = threading.Event()
         self.btn_stop.configure(state="normal")
+        self.log(f"\n🚀 Iniciando Campaña de Grupos en {perfil_nom}...")
 
         img_path = self.config_data.get("image_path", "")
         min_d = int(self.entry_min_delay.get())
@@ -930,25 +927,24 @@ class FBAutomatorApp(ctk.CTk):
                     max_delay=max_d,
                     user_data_dir=self.obtener_directorio_perfil(),
                     callback_log=self.log,
-                    stop_event=self.stop_event
+                    stop_event=self.stop_events[perfil_nom]
                 )
             finally:
-                self.is_running = False
-                self.after(0, self.finalizar_campana)
+                self.perfiles_activos.discard(perfil_nom)
 
         threading.Thread(target=run_thread, daemon=True).start()
 
     def detener_campana(self):
-        if self.is_running:
-            self.log("⏳ Solicitando detención de la campaña...")
-            self.stop_event.set()
+        perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
+        if perfil_nom in self.perfiles_activos:
+            self.log(f"⏳ Solicitando detención de la campaña para {perfil_nom}...")
+            if perfil_nom in self.stop_events:
+                self.stop_events[perfil_nom].set()
+        else:
+            self.log(f"⚠️ El perfil {perfil_nom} no está en ejecución actualmente.")
 
     def finalizar_campana(self):
-        self.btn_start.configure(state="normal")
-        self.btn_login.configure(state="normal")
-        self.btn_mode_247.configure(state="normal")
-        self.btn_stop.configure(state="disabled")
-        self.log("🏁 Proceso finalizado.")
+        pass
 
 if __name__ == "__main__":
     app = FBAutomatorApp()
