@@ -378,6 +378,7 @@ class FBAutomatorApp(ctk.CTk):
         self.log(f"\n🛒 Iniciando publicación en Facebook Marketplace con {perfil_nom}...")
 
         img_path = self.config_data.get("image_path_mp", "")
+        dir_perfil_fijo = self.obtener_directorio_perfil()
 
         def run_mp_thread():
             try:
@@ -389,7 +390,7 @@ class FBAutomatorApp(ctk.CTk):
                     ciudad="Quito",
                     descripcion=mensaje,
                     imagen_path=img_path,
-                    user_data_dir=self.obtener_directorio_perfil(),
+                    user_data_dir=dir_perfil_fijo,
                     callback_log=self.log
                 )
             finally:
@@ -455,12 +456,14 @@ class FBAutomatorApp(ctk.CTk):
         self.btn_stop.configure(state="normal")
         self.log(f"\n🤖 Iniciando Auto-Respondedor de Comentarios en {perfil_nom}...")
 
+        dir_perfil_fijo = self.obtener_directorio_perfil()
+
         def run_resp_thread():
             try:
                 responder_comentarios_en_notificaciones(
                     direccion=direccion,
                     telefonos=telefonos,
-                    user_data_dir=self.obtener_directorio_perfil(),
+                    user_data_dir=dir_perfil_fijo,
                     callback_log=self.log,
                     stop_event=self.stop_events[perfil_nom]
                 )
@@ -849,6 +852,8 @@ class FBAutomatorApp(ctk.CTk):
         
         self.log(f"\n⚡ Iniciando Modo 24/7 en {perfil_nom}...")
 
+        dir_perfil_fijo = self.obtener_directorio_perfil()
+
         def run_247_thread():
             try:
                 ejecutar_modo_continuo_24_7(
@@ -859,7 +864,7 @@ class FBAutomatorApp(ctk.CTk):
                     telefonos=telefonos,
                     min_delay=min_d,
                     max_delay=max_d,
-                    user_data_dir=self.obtener_directorio_perfil(),
+                    user_data_dir=dir_perfil_fijo,
                     callback_log=self.log,
                     stop_event=self.stop_events[perfil_nom]
                 )
@@ -917,6 +922,8 @@ class FBAutomatorApp(ctk.CTk):
         min_d = int(self.entry_min_delay.get())
         max_d = int(self.entry_max_delay.get())
 
+        dir_perfil_fijo = self.obtener_directorio_perfil()
+
         def run_thread():
             try:
                 ejecutar_automatizacion(
@@ -925,7 +932,7 @@ class FBAutomatorApp(ctk.CTk):
                     imagen_path=img_path,
                     min_delay=min_d,
                     max_delay=max_d,
-                    user_data_dir=self.obtener_directorio_perfil(),
+                    user_data_dir=dir_perfil_fijo,
                     callback_log=self.log,
                     stop_event=self.stop_events[perfil_nom]
                 )
