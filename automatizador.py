@@ -465,12 +465,26 @@ def ejecutar_automatizacion(lista_grupos, mensaje, imagen_path="", min_delay=45,
 
                 # Pausa aleatoria antes del siguiente grupo (si no es el último)
                 if i < len(lista_grupos) and not (stop_event and stop_event.is_set()):
-                    espera = random.randint(min_delay, max_delay)
-                    callback_log(f"⏳ Pausa de seguridad de {espera} segundos...")
+                    # Asegurar tiempos mínimos más seguros (Anti-ban)
+                    safe_min = max(min_delay, 180) # Mínimo 3 minutos
+                    safe_max = max(max_delay, 360) # Mínimo 6 minutos
+                    if safe_max <= safe_min: safe_max = safe_min + 60
+                    
+                    espera = random.randint(safe_min, safe_max)
+                    callback_log(f"⏳ Pausa de seguridad humana de {espera} segundos ({espera//60} min)...")
                     for _ in range(espera):
                         if stop_event and stop_event.is_set():
                             break
                         time.sleep(1)
+                        
+                    # Descanso largo cada 5 a 10 publicaciones (anti-ban)
+                    if i % random.randint(5, 10) == 0:
+                        descanso_largo = random.randint(1800, 3600) # 30 a 60 minutos
+                        callback_log(f"☕ ¡Descanso largo! Simulando comportamiento humano por {descanso_largo//60} minutos para evitar bloqueos...")
+                        for _ in range(descanso_largo):
+                            if stop_event and stop_event.is_set():
+                                break
+                            time.sleep(1)
 
         except Exception as e:
             callback_log(f"❌ Error crítico en el navegador: {str(e)}")

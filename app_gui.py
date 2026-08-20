@@ -294,13 +294,28 @@ class FBAutomatorApp(ctk.CTk):
         # Información de Selección de Imagen en Marketplace
         lbl_img_info = ctk.CTkLabel(
             self.tab_marketplace,
-            text="📷 Imagen del Anuncio: Se seleccionará EXACTAMENTE 1 flyer rotativo al azar de tu carpeta 'flyers/' (40 imágenes disponibles) para cada publicación de Marketplace sin repetir el anterior.",
+            text="📷 Imagen del Anuncio: Selecciona la imagen específica para este anuncio de Marketplace. Si la dejas vacía, se usará un flyer rotativo al azar.",
             font=ctk.CTkFont(size=11, weight="bold"),
             text_color="#27ae60",
             justify="left",
             wraplength=750
         )
-        lbl_img_info.grid(row=5, column=0, columnspan=2, padx=15, pady=(10, 5), sticky="w")
+        lbl_img_info.grid(row=5, column=0, columnspan=2, padx=15, pady=(10, 0), sticky="w")
+        
+        # Selector de Imagen Marketplace
+        frame_img_mp = ctk.CTkFrame(self.tab_marketplace, fg_color="transparent")
+        frame_img_mp.grid(row=6, column=0, columnspan=2, padx=15, pady=5, sticky="ew")
+        
+        btn_select_img_mp = ctk.CTkButton(frame_img_mp, text="🖼️ Elegir Imagen...", command=self.seleccionar_imagen_mp, width=140)
+        btn_select_img_mp.pack(side="left", padx=5)
+        
+        saved_img_mp = self.config_data.get("image_path_mp", "")
+        display_txt_mp = os.path.basename(saved_img_mp) if (saved_img_mp and os.path.exists(saved_img_mp)) else "Ninguna imagen seleccionada"
+        self.lbl_img_path_mp = ctk.CTkLabel(frame_img_mp, text=display_txt_mp, text_color="#00ffcc" if saved_img_mp else "#aaaaaa")
+        self.lbl_img_path_mp.pack(side="left", padx=10)
+        
+        btn_clear_img_mp = ctk.CTkButton(frame_img_mp, text="❌ Quitar", command=self.quitar_imagen_mp, width=65, fg_color="#777777")
+        btn_clear_img_mp.pack(side="left", padx=5)
 
         # Botón de Publicación directa en Marketplace
         btn_pub_mp = ctk.CTkButton(
@@ -312,7 +327,24 @@ class FBAutomatorApp(ctk.CTk):
             height=40,
             font=ctk.CTkFont(size=14, weight="bold")
         )
-        btn_pub_mp.grid(row=6, column=0, columnspan=2, padx=15, pady=20)
+        btn_pub_mp.grid(row=7, column=0, columnspan=2, padx=15, pady=20)
+
+    def seleccionar_imagen_mp(self):
+        initial_dir = os.path.abspath(FLYERS_DIR)
+        filepath = filedialog.askopenfilename(
+            title="Selecciona la imagen para Marketplace",
+            initialdir=initial_dir,
+            filetypes=[("Archivos de Imagen", "*.png *.jpg *.jpeg *.webp")]
+        )
+        if filepath:
+            self.config_data["image_path_mp"] = filepath
+            self.lbl_img_path_mp.configure(text=os.path.basename(filepath), text_color="#00ffcc")
+            self.guardar_configuracion()
+
+    def quitar_imagen_mp(self):
+        self.config_data["image_path_mp"] = ""
+        self.lbl_img_path_mp.configure(text="Ninguna imagen seleccionada", text_color="#aaaaaa")
+        self.guardar_configuracion()
 
     def iniciar_publicacion_marketplace(self):
         if self.is_running:
@@ -349,7 +381,7 @@ class FBAutomatorApp(ctk.CTk):
         perfil_nom = self.combo_perfiles.get() if hasattr(self, "combo_perfiles") else "Perfil 1"
         self.log(f"\n🛒 Iniciando publicación en Facebook Marketplace con {perfil_nom}...")
 
-        img_path = self.config_data.get("image_path", "")
+        img_path = self.config_data.get("image_path_mp", "")
 
         def run_mp_thread():
             try:
@@ -684,7 +716,10 @@ class FBAutomatorApp(ctk.CTk):
         
         # Botón para crear un nuevo perfil arbitrario
         btn_nuevo_perfil = ctk.CTkButton(frame_controls, text="+ Nuevo", width=60, command=self.crear_nuevo_perfil, fg_color="#555555", hover_color="#333333")
-        btn_nuevo_perfil.pack(side="left", padx=(0, 10))
+        btn_nuevo_perfil.pack(side="left", padx=(0, 5))
+        
+        btn_limpiar_perfil = ctk.CTkButton(frame_controls, text="🧹 Limpiar", width=70, command=self.limpiar_perfil_actual, fg_color="#e67e22", hover_color="#d35400")
+        btn_limpiar_perfil.pack(side="left", padx=(0, 10))
         
         # Restaurar perfil guardado o default
         perfil_guardado = self.config_data.get("current_profile", "Perfil 1")
@@ -742,6 +777,19 @@ class FBAutomatorApp(ctk.CTk):
                 self.combo_perfiles.set(nuevo_nombre)
                 self.al_cambiar_perfil(nuevo_nombre)
                 self.log(f"✅ ¡Nuevo perfil '{nuevo_nombre}' listo! Haz clic en 'Conectar FB' y te abrirá un navegador vacío para iniciar sesión.")
+
+    def limpiar_perfil_actual(self):
+        dir_perfil = self.obtener_directorio_perfil()
+        import shutil
+        if messagebox.askyesno("Confirmar Limpieza", f"¿Estás seguro de que deseas resetear la sesión de '{self.combo_perfiles.get()}'?\n\nEsto solucionará errores como 'UNAUTHENTICATED' borrando las cookies dañadas, pero tendrás que volver a iniciar sesión en Facebook."):
+            try:
+                if os.path.exists(dir_perfil):
+                    shutil.rmtree(dir_perfil)
+                self.log(f"🧹 Perfil limpiado exitosamente. Haz clic en 'Conectar FB' para iniciar una nueva sesión limpia.")
+                messagebox.showinfo("Éxito", "Perfil limpiado correctamente.\nYa puedes presionar '1. Conectar FB' para iniciar sesión nuevamente sin errores.")
+            except Exception as e:
+                self.log(f"❌ Error al limpiar perfil: {str(e)}")
+                messagebox.showerror("Error", f"No se pudo limpiar el perfil. Asegúrate de que TODAS las ventanas de Chrome estén cerradas antes de intentar limpiar.\n\nDetalle: {str(e)}")
 
     def extraer_urls_validas(self, texto_grupos=""):
         """
